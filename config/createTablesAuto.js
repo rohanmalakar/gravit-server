@@ -1,10 +1,4 @@
-// ---------------------------------------------------------------------
-// <copyright file="createTablesAuto.js" company="Gravit InfoSystem">
-// Copyright (c) Gravit InfoSystem. All rights reserved.
-// </copyright>
-// ---------------------------------------------------------------------
 
-//Created Tables automatically by Gravit InfoSystem
 async function createTables(db) {
   try {
     await db.execute(`

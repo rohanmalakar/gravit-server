@@ -32,11 +32,11 @@ export const register = async (req, res) => {
 
         const [result] = await db.query(
             'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-            [name, email, hashedPassword, role || 'user']
+            [name, email, hashedPassword, role || 'admin']
         );
 
         const token = jwt.sign(
-            { id: result.insertId, role: role || 'user' },
+            { id: result.insertId, role: role || 'admin' },
             process.env.JWT_SECRET,
             { expiresIn: '1d' }
         );
