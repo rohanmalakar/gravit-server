@@ -58,20 +58,19 @@ export const createBooking = async (req, res) => {
     const { eventId, seats, quantity, totalAmount, name, email, mobile } = req.body;
     const userId = req.user.id;
     
-    if (!eventId || !seats || !totalAmount) {
+    if (!eventId || !totalAmount) {
         return res.status(400).json({
             success: false,
-            message: 'EventId, seats, and totalAmount are required'
+            message: 'EventId and totalAmount are required'
         });
     }
 
-    const seatsArray = parseSeats(seats);
-    const quantityVal = quantity || seatsArray.length;
+    const quantityVal = quantity || 1;
 
-    if (seatsArray.length === 0) {
+    if (quantityVal <= 0) {
         return res.status(400).json({
             success: false,
-            message: 'At least one valid seat is required'
+            message: 'Quantity must be greater than 0'
         });
     }
 
@@ -114,50 +113,25 @@ export const createBooking = async (req, res) => {
             await connection.rollback();
             return res.status(400).json({
                 success: false,
-                message: 'Not enough seats available'
+                message: `Not enough seats available. Only ${event.available_seats} seats remaining.`
             });
         }
 
+        // Auto-assign seats based on next available seat numbers
         const allBookedSeats = await getBookedSeats(connection, eventId);
-        const conflictingSeats = seatsArray.filter(seat => allBookedSeats.has(seat));
-
-        if (conflictingSeats.length > 0) {
-            await connection.rollback();
-            return res.status(400).json({
-                success: false,
-                message: `Seats ${conflictingSeats.join(', ')} are already booked. Please select different seats.`
-            });
-        }
-
-        const invalidSeats = seatsArray.filter(seat => seat < 1 || seat > event.total_seats);
-        if (invalidSeats.length > 0) {
-            await connection.rollback();
-            return res.status(400).json({
-                success: false,
-                message: `Invalid seat numbers: ${invalidSeats.join(', ')}. Seats must be between 1 and ${event.total_seats}.`
-            });
-        }
-
-        const [existingBookings] = await connection.execute(
-            'SELECT id, seats FROM bookings WHERE event_id = ? AND user_id = ?',
-            [eventId, userId]
-        );
-
-        if (existingBookings.length > 0) {
-            const userBookedSeats = new Set();
-            existingBookings.forEach(booking => {
-                const seats = parseSeats(booking.seats);
-                seats.forEach(seat => userBookedSeats.add(seat));
-            });
-
-            const duplicateSeats = seatsArray.filter(seat => userBookedSeats.has(seat));
-            if (duplicateSeats.length > 0) {
-                await connection.rollback();
-                return res.status(400).json({
-                    success: false,
-                    message: `You have already booked seats ${duplicateSeats.join(', ')} for this event.`
-                });
+        const autoAssignedSeats = [];
+        for (let i = 1; i <= event.total_seats && autoAssignedSeats.length < quantityVal; i++) {
+            if (!allBookedSeats.has(i)) {
+                autoAssignedSeats.push(i);
             }
+        }
+
+        if (autoAssignedSeats.length < quantityVal) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                message: 'Unable to assign seats. Please try again.'
+            });
         }
 
         await connection.execute(
@@ -184,7 +158,7 @@ export const createBooking = async (req, res) => {
         );
         const user = users[0] || {};
 
-        const seatsJson = JSON.stringify(seatsArray);
+        const seatsJson = JSON.stringify(autoAssignedSeats);
         
         const [result] = await connection.execute(
             'INSERT INTO bookings (event_id, user_id, name, email, mobile, quantity, total_amount, seats) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
