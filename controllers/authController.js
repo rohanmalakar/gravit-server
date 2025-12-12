@@ -10,7 +10,7 @@ import db from '../config/db.js';
 
 export const register = async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password, role='admin' } = req.body;
 
         if (!name || !email || !password) {
             return res.status(400).json({
@@ -50,7 +50,7 @@ export const register = async (req, res) => {
                     id: result.insertId,
                     name,
                     email,
-                    role: role || 'user'
+                    role: role || 'admin'
                 }
             }
         });
