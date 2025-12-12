@@ -6,56 +6,27 @@
 
 import db from '../config/db.js';
 
-const parseSeats = (seats) => {
-    if (!seats) return [];
-    if (Array.isArray(seats)) return seats.map(s => Number(s)).filter(s => !isNaN(s) && s > 0);
-    if (typeof seats === 'string') {
-        try {
-            const parsed = JSON.parse(seats);
-            return Array.isArray(parsed) ? parsed.map(s => Number(s)).filter(s => !isNaN(s) && s > 0) : [];
-        } catch {
-            return seats.split(',').map(s => Number(s.trim())).filter(s => !isNaN(s) && s > 0);
-        }
-    }
-    return [];
-};
-
-const getBookedSeats = async (connection, eventId) => {
-    const bookedSeats = new Set();
-    try {
-        const [bookings] = await connection.execute(
-            'SELECT seats FROM bookings WHERE event_id = ? AND seats IS NOT NULL',
-            [eventId]
-        );
-        bookings.forEach(booking => {
-            const seats = parseSeats(booking.seats);
-            seats.forEach(seat => bookedSeats.add(seat));
-        });
-    } catch (err) {
-        if (err.code !== 'ER_BAD_FIELD_ERROR') throw err;
-    }
-    return bookedSeats;
-};
-
 const transformBooking = (booking) => {
-    const seats = parseSeats(booking.seats);
     return {
         id: booking.id,
         eventId: Number(booking.event_id),
         userId: Number(booking.user_id),
-        seats,
         quantity: booking.quantity,
         totalAmount: Number(booking.total_amount),
-        status: booking.status || 'pending',
+        status: booking.status || 'booked',
         createdAt: booking.booking_date || booking.created_at,
         name: booking.name,
         email: booking.email,
-        mobile: booking.mobile
+        mobile: booking.mobile,
+        title: booking.title,
+        date: booking.date,
+        location: booking.location,
+        image: booking.img
     };
 };
 
 export const createBooking = async (req, res) => {
-    const { eventId, seats, quantity, totalAmount, name, email, mobile } = req.body;
+    const { eventId, quantity, totalAmount, name, email, mobile } = req.body;
     const userId = req.user.id;
     
     if (!eventId || !totalAmount) {
@@ -117,23 +88,6 @@ export const createBooking = async (req, res) => {
             });
         }
 
-        // Auto-assign seats based on next available seat numbers
-        const allBookedSeats = await getBookedSeats(connection, eventId);
-        const autoAssignedSeats = [];
-        for (let i = 1; i <= event.total_seats && autoAssignedSeats.length < quantityVal; i++) {
-            if (!allBookedSeats.has(i)) {
-                autoAssignedSeats.push(i);
-            }
-        }
-
-        if (autoAssignedSeats.length < quantityVal) {
-            await connection.rollback();
-            return res.status(400).json({
-                success: false,
-                message: 'Unable to assign seats. Please try again.'
-            });
-        }
-
         await connection.execute(
             'UPDATE events SET available_seats = available_seats - ? WHERE id = ?',
             [quantityVal, eventId]
@@ -157,11 +111,9 @@ export const createBooking = async (req, res) => {
             [userId]
         );
         const user = users[0] || {};
-
-        const seatsJson = JSON.stringify(autoAssignedSeats);
         
         const [result] = await connection.execute(
-            'INSERT INTO bookings (event_id, user_id, name, email, mobile, quantity, total_amount, seats) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO bookings (event_id, user_id, name, email, mobile, quantity, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 eventId,
                 userId,
@@ -170,7 +122,7 @@ export const createBooking = async (req, res) => {
                 mobile || null,
                 quantityVal,
                 totalAmount,
-                seatsJson
+                'confirmed'
             ]
         );
 
@@ -180,13 +132,13 @@ export const createBooking = async (req, res) => {
             id: result.insertId,
             eventId,
             userId,
-            seats: seatsArray,
             quantity: quantityVal,
             totalAmount,
             status: 'confirmed',
             createdAt: new Date().toISOString(),
             name: name || user.name || null,
-            email: email || user.email || null
+            email: email || user.email || null,
+            mobile: mobile || null
         };
 
         return res.status(201).json({
