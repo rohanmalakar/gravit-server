@@ -10,7 +10,7 @@ import db from '../config/db.js';
 
 export const register = async (req, res) => {
     try {
-        const { name, email, password, role='admin' } = req.body;
+        const { name, email, password, role='user' } = req.body;
 
         if (!name || !email || !password) {
             return res.status(400).json({
@@ -32,11 +32,11 @@ export const register = async (req, res) => {
 
         const [result] = await db.query(
             'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-            [name, email, hashedPassword, role || 'admin']
+            [name, email, hashedPassword, role || 'user']
         );
 
         const token = jwt.sign(
-            { id: result.insertId, role: role || 'admin' },
+            { id: result.insertId, role: role || 'user' },
             process.env.JWT_SECRET,
             { expiresIn: '1d' }
         );
@@ -50,7 +50,7 @@ export const register = async (req, res) => {
                     id: result.insertId,
                     name,
                     email,
-                    role: role || 'admin'
+                    role: role || 'user'
                 }
             }
         });
