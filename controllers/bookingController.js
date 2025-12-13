@@ -26,7 +26,7 @@ const transformBooking = (booking) => {
 };
 
 export const createBooking = async (req, res) => {
-    const { eventId, quantity, totalAmount, name, email, mobile } = req.body;
+    const { eventId, quantity, totalAmount, name, email, mobile, seats } = req.body;
     const userId = req.user.id;
     
     if (!eventId || !totalAmount) {
@@ -36,7 +36,8 @@ export const createBooking = async (req, res) => {
         });
     }
 
-    const quantityVal = quantity || 1;
+    // If seats array is provided, use its length as quantity
+    const quantityVal = seats && Array.isArray(seats) ? seats.length : (quantity || 1);
 
     if (quantityVal <= 0) {
         return res.status(400).json({
@@ -112,8 +113,11 @@ export const createBooking = async (req, res) => {
         );
         const user = users[0] || {};
         
+        // Convert seats array to JSON string if provided
+        const seatsJson = seats && Array.isArray(seats) ? JSON.stringify(seats) : null;
+        
         const [result] = await connection.execute(
-            'INSERT INTO bookings (event_id, user_id, name, email, mobile, quantity, total_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO bookings (event_id, user_id, name, email, mobile, quantity, total_amount, seats, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 eventId,
                 userId,
@@ -122,6 +126,7 @@ export const createBooking = async (req, res) => {
                 mobile || null,
                 quantityVal,
                 totalAmount,
+                seatsJson,
                 'confirmed'
             ]
         );
@@ -134,6 +139,7 @@ export const createBooking = async (req, res) => {
             userId,
             quantity: quantityVal,
             totalAmount,
+            seats: seats || [],
             status: 'confirmed',
             createdAt: new Date().toISOString(),
             name: name || user.name || null,
