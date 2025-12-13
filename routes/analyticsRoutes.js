@@ -10,14 +10,14 @@ import {
     getBookingStats, 
     getEventPerformance 
 } from '../controllers/analyticsController.js';
-import { verifyToken } from '../middleware/authMiddleware.js';
-import { requireRole } from '../middleware/roleMiddleware.js';
+import { authenticateToken } from '../middleware/authMiddleware.js';
+import { authorizeRole } from '../middleware/roleMiddleware.js';
 
 const router = express.Router();
 
 // All analytics routes require authentication and admin role
-router.use(verifyToken);
-router.use(requireRole(['admin']));
+router.use(authenticateToken);
+router.use(authorizeRole('admin'));
 
 // Dashboard analytics
 router.get('/dashboard', getDashboardAnalytics);
