@@ -192,39 +192,41 @@ export const getAllBookings = async (req, res) => {
     try {
         const { eventId, userId: queryUserId } = req.query;
         
-        // If no filters and user is not admin, deny access
-        if (!eventId && !queryUserId && req.user.role !== 'admin') {
-            return res.status(403).json({
-                success: false,
-                message: 'Access denied. Admin access required to view all bookings'
-            });
-        }
-        
         let query = 'SELECT b.*, e.title, e.date, e.location, e.img FROM bookings b JOIN events e ON b.event_id = e.id';
         const params = [];
         const conditions = [];
 
-        if (queryUserId) {
-            if (req.user.role === 'admin') {
-                // Admins can query any user's bookings
+        // Role-based access control
+        if (req.user.role === 'admin') {
+            // Admins can view all bookings or filter by userId/eventId
+            if (queryUserId) {
                 conditions.push('b.user_id = ?');
                 params.push(queryUserId);
-            } else if (Number(queryUserId) === req.user.id) {
-                // Users can only query their own bookings
-                conditions.push('b.user_id = ?');
-                params.push(queryUserId);
-            } else {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You can only view your own bookings'
-                });
             }
-        }
-
-        if (eventId) {
-            // Anyone authenticated can view bookings for an event (to see booked seats)
-            conditions.push('b.event_id = ?');
-            params.push(eventId);
+            if (eventId) {
+                conditions.push('b.event_id = ?');
+                params.push(eventId);
+            }
+        } else {
+            // Non-admin users can only view their own bookings or bookings for a specific event
+            if (queryUserId) {
+                if (Number(queryUserId) !== req.user.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'You can only view your own bookings'
+                    });
+                }
+                conditions.push('b.user_id = ?');
+                params.push(queryUserId);
+            } else if (eventId) {
+                // Allow users to view bookings for a specific event (to see booked seats)
+                conditions.push('b.event_id = ?');
+                params.push(eventId);
+            } else {
+                // If no filters, non-admin users can only see their own bookings
+                conditions.push('b.user_id = ?');
+                params.push(req.user.id);
+            }
         }
 
         if (conditions.length > 0) {
@@ -233,7 +235,7 @@ export const getAllBookings = async (req, res) => {
 
         query += ' ORDER BY b.booking_date DESC';
 
-        const [bookings] = await db.query(query, params);
+        const [bookings] = await db.execute(query, params);
         const transformed = bookings.map(transformBooking);
 
         return res.status(200).json({
@@ -332,9 +334,9 @@ export const updateBooking = async (req, res) => {
             });
         }
 
-        await db.query('UPDATE bookings SET status = ? WHERE id = ?', [status, id]);
+        await db.execute('UPDATE bookings SET status = ? WHERE id = ?', [status, id]);
         
-        const [bookings] = await db.query(
+        const [bookings] = await db.execute(
             'SELECT b.*, e.title, e.date, e.location, e.img FROM bookings b JOIN events e ON b.event_id = e.id WHERE b.id = ?',
             [id]
         );
