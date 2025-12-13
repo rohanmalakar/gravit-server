@@ -14,6 +14,7 @@ import createTables from './config/createTablesAuto.js';
 import authRoutes from './routes/authRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
+import analyticsRoutes from './routes/analyticsRoutes.js';
 
 dotenv.config();
 
@@ -69,6 +70,7 @@ const io = new Server(server, {
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Socket.IO Logic with lock expiration
 const lockedSeats = {}; // { eventId: { seatIndex: { userId, timestamp } } }
