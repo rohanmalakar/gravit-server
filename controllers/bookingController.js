@@ -255,6 +255,8 @@ export const getUserBookings = async (req, res) => {
         const userId = req.user.id;
         const requestedUserId = req.params.userId;
         
+        console.log('getUserBookings called - userId:', userId, 'requestedUserId:', requestedUserId);
+        
         if (requestedUserId && req.user.role !== 'admin' && Number(requestedUserId) !== userId) {
             return res.status(403).json({
                 success: false,
@@ -263,12 +265,14 @@ export const getUserBookings = async (req, res) => {
         }
         
         const targetUserId = req.user.role === 'admin' && requestedUserId ? requestedUserId : userId;
+        console.log('Fetching bookings for targetUserId:', targetUserId);
         
-        const [bookings] = await db.query(
+        const [bookings] = await db.execute(
             'SELECT b.*, e.title, e.date, e.location, e.img FROM bookings b JOIN events e ON b.event_id = e.id WHERE b.user_id = ? ORDER BY b.booking_date DESC',
             [targetUserId]
         );
 
+        console.log('Found bookings:', bookings.length);
         const transformed = bookings.map(transformBooking);
 
         return res.status(200).json({
@@ -278,6 +282,7 @@ export const getUserBookings = async (req, res) => {
         });
     } catch (error) {
         console.error('Get user bookings error:', error?.message);
+        console.error('Full error:', error);
         return res.status(500).json({
             success: false,
             message: error?.message || 'Server error while fetching user bookings'
@@ -289,7 +294,7 @@ export const getBookingById = async (req, res) => {
     try {
         const { id } = req.params;
         
-        const [bookings] = await db.query(
+        const [bookings] = await db.execute(
             'SELECT b.*, e.title, e.date, e.location, e.img FROM bookings b JOIN events e ON b.event_id = e.id WHERE b.id = ?',
             [id]
         );
