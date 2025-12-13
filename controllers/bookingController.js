@@ -7,6 +7,17 @@
 import db from '../config/db.js';
 
 const transformBooking = (booking) => {
+    // Parse seats if it's a JSON string
+    let seats = null;
+    if (booking.seats) {
+        try {
+            seats = typeof booking.seats === 'string' ? JSON.parse(booking.seats) : booking.seats;
+        } catch (e) {
+            console.error('Error parsing seats:', e);
+            seats = null;
+        }
+    }
+    
     return {
         id: booking.id,
         eventId: Number(booking.event_id),
@@ -18,6 +29,7 @@ const transformBooking = (booking) => {
         name: booking.name,
         email: booking.email,
         mobile: booking.mobile,
+        seats: seats,
         title: booking.title,
         date: booking.date,
         location: booking.location,
