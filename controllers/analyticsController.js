@@ -12,6 +12,8 @@ import db from '../config/db.js';
  */
 export const getDashboardAnalytics = async (req, res) => {
     try {
+        console.log('📊 Analytics request received from user:', req.user?.email);
+        
         // Get total revenue from confirmed bookings
         const [revenueResult] = await db.query(
             `SELECT COALESCE(SUM(total_amount), 0) as total 
@@ -19,27 +21,30 @@ export const getDashboardAnalytics = async (req, res) => {
              WHERE status = 'confirmed' OR status = 'booked'`
         );
         const totalRevenue = parseFloat(revenueResult[0]?.total || 0);
+        console.log('💰 Total Revenue:', totalRevenue);
 
         // Get total bookings count
         const [bookingsResult] = await db.query(
             `SELECT COUNT(*) as count FROM bookings`
         );
         const totalBookings = parseInt(bookingsResult[0]?.count || 0);
+        console.log('📋 Total Bookings:', totalBookings);
 
         // Get total events count
         const [eventsResult] = await db.query(
             `SELECT COUNT(*) as count FROM events`
         );
         const totalEvents = parseInt(eventsResult[0]?.count || 0);
+        console.log('🎫 Total Events:', totalEvents);
 
         // Get recent bookings (last 7 days)
         const [recentResult] = await db.query(
             `SELECT COUNT(*) as count 
              FROM bookings 
-             WHERE booking_date >= DATE_SUB(NOW(), INTERVAL 7 DAY) 
-                OR created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
+             WHERE booking_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)`
         );
         const recentBookings = parseInt(recentResult[0]?.count || 0);
+        console.log('📅 Recent Bookings (7 days):', recentBookings);
 
         // Get event statistics with bookings
         const [events] = await db.query(
@@ -82,12 +87,9 @@ export const getDashboardAnalytics = async (req, res) => {
                 `SELECT COALESCE(SUM(total_amount), 0) as total
                  FROM bookings 
                  WHERE (status = 'confirmed' OR status = 'booked')
-                   AND (
-                     (booking_date >= ? AND booking_date < ?)
-                     OR 
-                     (created_at >= ? AND created_at < ?)
-                   )`,
-                [dateStr, nextDateStr, dateStr, nextDateStr]
+                   AND booking_date >= ? 
+                   AND booking_date < ?`,
+                [dateStr, nextDateStr]
             );
 
             revenueByDate.push({
@@ -96,20 +98,24 @@ export const getDashboardAnalytics = async (req, res) => {
             });
         }
 
+        const responseData = {
+            totalRevenue,
+            totalBookings,
+            totalEvents,
+            recentBookings,
+            eventStats,
+            revenueByDate
+        };
+
+        console.log('✅ Analytics data prepared:', JSON.stringify(responseData, null, 2));
+
         return res.status(200).json({
             success: true,
-            data: {
-                totalRevenue,
-                totalBookings,
-                totalEvents,
-                recentBookings,
-                eventStats,
-                revenueByDate
-            }
+            data: responseData
         });
 
     } catch (error) {
-        console.error('Analytics error:', error);
+        console.error('❌ Analytics error:', error);
         return res.status(500).json({
             success: false,
             message: 'Failed to fetch analytics',
