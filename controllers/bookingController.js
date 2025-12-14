@@ -196,7 +196,6 @@ export const getAllBookings = async (req, res) => {
         const params = [];
         const conditions = [];
 
-        // Role-based access control
         if (req.user.role === 'admin') {
             // Admins can view all bookings or filter by userId/eventId
             if (queryUserId) {

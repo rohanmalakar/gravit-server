@@ -153,9 +153,7 @@ export const getBookingStats = async (req, res) => {
     }
 };
 
-/**
- * Get event performance metrics
- */
+
 export const getEventPerformance = async (req, res) => {
     try {
         const [eventPerformance] = await db.query(
