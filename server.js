@@ -23,7 +23,8 @@ const app = express();
 const server = http.createServer(app);
 
 const allowedOrigins = [
-  "https://gravit-client-k4pn.vercel.app"
+  "https://gravit-client-k4pn.vercel.app",
+  "https://gravit-client-rose.vercel.app"
 ];
 
 app.use(cors({
